@@ -1,0 +1,14 @@
+# Never bake secrets into the image
+.env
+*.env
+
+# Docs / catalog are not needed at runtime
+README.md
+custom-catalog.yaml
+
+# Python cruft
+__pycache__/
+*.py[cod]
+
+# OS cruft
+.DS_Store

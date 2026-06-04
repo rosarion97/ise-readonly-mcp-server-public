@@ -1,0 +1,13 @@
+# Never bake secrets into the image — .env is mounted at runtime via --env-file
+.env
+*.env
+
+# Docs are not needed at runtime
+README.md
+
+# Python cruft
+__pycache__/
+*.py[cod]
+
+# OS cruft
+.DS_Store

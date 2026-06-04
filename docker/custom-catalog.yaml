@@ -1,0 +1,27 @@
+version: "2"
+registry:
+  ise-readonly:
+    name: ISE Read-Only
+    description: Query a Cisco Identity Services Engine (ISE) 3.1+ deployment in read-only mode using the ISE OpenAPI. Retrieve deployment/node info, network access and device-admin policy sets, TrustSec virtual networks, certificate inventory, profiler config, repositories, and patches — without making any configuration changes. ERS, MnT, and pxGrid interfaces are intentionally not used. Not affiliated with or endorsed by Cisco.
+    categories:
+      - security
+      - network
+      - identity
+      - monitoring
+    image: ise-readonly-mcp-server:latest
+    secrets:
+      - name: ISE_HOST
+        required: true
+        description: Hostname or IP of the ISE Primary Administration Node (PAN). No scheme.
+      - name: ISE_USERNAME
+        required: true
+        description: ISE admin / API username for Basic auth (account needs the OpenAPI / ERS Admin or Super Admin role).
+      - name: ISE_PASSWORD
+        required: true
+        description: Password for ISE_USERNAME. Stored in Docker, never written to client config.
+      - name: ISE_VERIFY_SSL
+        required: false
+        description: TLS verification — "yes" (default) for production, "no" only for self-signed lab certs.
+      - name: ISE_MAX_RESPONSE_BYTES
+        required: false
+        description: JSON byte cap per tool response. Default 120000.
