@@ -37,10 +37,83 @@ podman run --rm --env-file podman/.env ise-readonly-mcp:latest
 
 ---
 
+## Providing secrets
+
+The server reads its configuration from **environment variables** (`ISE_HOST`,
+`ISE_USERNAME`, `ISE_PASSWORD`, and the optional `ISE_VERIFY_SSL` /
+`ISE_MAX_RESPONSE_BYTES`). How those variables reach the container is your
+choice, but one rule always applies: **never inline secrets as
+`-e ISE_PASSWORD=…` arguments in your MCP client config file** — that file is
+plaintext and often cloud-synced. Both methods below keep the credential out of
+it.
+
+- **Recommended — Podman secrets:** the credential lives in Podman's managed
+  secret store, never in a file on disk you have to remember to lock down.
+- **Simplest — env file:** convenient for local testing, but the value sits in
+  a plaintext dotfile.
+
+### Recommended: Podman secrets (step by step)
+
+Podman has its own secret store. Unlike the Docker MCP Toolkit, Podman does not
+auto-inject secrets as environment variables — you inject each one explicitly at
+`podman run` time with `type=env`. This is the closest equivalent to the
+Docker backend's managed-secret flow.
+
+**Step 1 — Create a secret for each sensitive value.** Pipe the value in on
+stdin (the trailing `-`) so it never lands in your shell history:
+
+```bash
+printf '%s' 'your-ise-password'  | podman secret create ise_password -
+printf '%s' 'apiuser'            | podman secret create ise_username -
+printf '%s' 'ise-ppan.corp.local'| podman secret create ise_host -
+```
+
+Store as many or as few as you like — at minimum keep `ISE_PASSWORD` in a
+secret. Non-sensitive values (`ISE_VERIFY_SSL`, `ISE_MAX_RESPONSE_BYTES`) can
+stay as plain `-e` flags.
+
+**Step 2 — Verify they're stored** (values are never displayed):
+
+```bash
+podman secret list
+```
+
+**Step 3 — Run, injecting each secret as an env var.** The
+`type=env,target=NAME` part is required — without it, Podman mounts the secret
+as a *file* under `/run/secrets/`, which this server does not read:
+
+```bash
+podman run --rm -i \
+  --secret ise_host,type=env,target=ISE_HOST \
+  --secret ise_username,type=env,target=ISE_USERNAME \
+  --secret ise_password,type=env,target=ISE_PASSWORD \
+  -e ISE_VERIFY_SSL=yes \
+  ise-readonly-mcp:latest
+```
+
+### Simplest: env file
+
+Put the values in `podman/.env` and pass it with `--env-file`. The secret stays
+out of the client config, but note it lives in a **plaintext file on disk** —
+keep `podman/.env` `chmod 600` and gitignored (it already is):
+
+```bash
+podman run --rm -i --env-file podman/.env ise-readonly-mcp:latest
+```
+
+> Using Docker instead of Podman? The `docker/` backend integrates with the
+> **Docker MCP Toolkit**, which manages secrets for you via
+> `docker mcp secret set`. See `docker/README.md`.
+
+---
+
 ## Claude Desktop integration
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`
-(macOS) or the equivalent path on your OS:
+(macOS) or the equivalent path on your OS. Create the Podman secrets first
+(see [Providing secrets](#recommended-podman-secrets-step-by-step)), then point
+the client at the secret-injecting invocation — no credential ends up in this
+file:
 
 ```json
 {
@@ -49,7 +122,10 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`
       "command": "podman",
       "args": [
         "run", "--rm", "-i",
-        "--env-file", "/absolute/path/to/podman/.env",
+        "--secret", "ise_host,type=env,target=ISE_HOST",
+        "--secret", "ise_username,type=env,target=ISE_USERNAME",
+        "--secret", "ise_password,type=env,target=ISE_PASSWORD",
+        "-e", "ISE_VERIFY_SSL=yes",
         "ise-readonly-mcp:latest"
       ]
     }
@@ -57,7 +133,24 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`
 }
 ```
 
+Prefer the env-file route for a quick local test? Swap the `--secret`/`-e`
+arguments for `"--env-file", "/absolute/path/to/podman/.env"`.
+
 ## Claude Code integration
+
+Using Podman secrets (recommended):
+
+```bash
+claude mcp add ise-readonly \
+  podman run --rm -i \
+    --secret ise_host,type=env,target=ISE_HOST \
+    --secret ise_username,type=env,target=ISE_USERNAME \
+    --secret ise_password,type=env,target=ISE_PASSWORD \
+    -e ISE_VERIFY_SSL=yes \
+    ise-readonly-mcp:latest
+```
+
+Or with an env file:
 
 ```bash
 claude mcp add ise-readonly \
