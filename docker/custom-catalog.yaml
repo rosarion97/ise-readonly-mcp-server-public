@@ -11,17 +11,22 @@ registry:
     image: ise-readonly-mcp-server:latest
     secrets:
       - name: ISE_HOST
+        env: ISE_HOST
         required: true
         description: Hostname or IP of the ISE Primary Administration Node (PAN). No scheme.
       - name: ISE_USERNAME
+        env: ISE_USERNAME
         required: true
         description: ISE admin / API username for Basic auth (account needs the OpenAPI / ERS Admin or Super Admin role).
       - name: ISE_PASSWORD
+        env: ISE_PASSWORD
         required: true
         description: Password for ISE_USERNAME. Stored in Docker, never written to client config.
       - name: ISE_VERIFY_SSL
+        env: ISE_VERIFY_SSL
         required: false
         description: TLS verification — "yes" (default) for production, "no" only for self-signed lab certs.
       - name: ISE_MAX_RESPONSE_BYTES
+        env: ISE_MAX_RESPONSE_BYTES
         required: false
         description: JSON byte cap per tool response. Default 120000.

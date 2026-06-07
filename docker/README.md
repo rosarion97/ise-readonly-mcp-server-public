@@ -132,20 +132,41 @@ registry:
 
 If `registry.yaml` does not exist yet, create it with exactly the snippet above.
 
-### Step 6 — Connect Claude Desktop to the Docker MCP gateway
+### Step 6 — Point Claude Desktop at the Docker MCP gateway
 
-Either:
+Add the gateway block to Claude Desktop's config (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`). The gateway runs as a container, mounts the Docker socket so it can spawn the `ise-readonly-mcp-server` container on demand, mounts your `~/.docker/mcp` directory so it can read the catalog and registry, and mounts the Docker secrets-engine socket so it can resolve the `ISE_*` secrets you set in Step 3.
 
-- In Docker Desktop: open **MCP Toolkit > Clients** and connect Claude Desktop, **or**
-- From the CLI:
-  ```bash
-  docker mcp client connect claude-desktop
-  ```
+Replace `<your-username>` with your macOS username (run `whoami` to check):
 
-Claude Desktop's `claude_desktop_config.json` will reference the gateway only —
-it does **not** contain `ISE_PASSWORD` or any other secret.
+```json
+{
+  "mcpServers": {
+    "mcp-toolkit-gateway": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "/var/run/docker.sock:/var/run/docker.sock",
+        "-v", "/Users/<your-username>/.docker/mcp:/mcp",
+        "-v", "/Users/<your-username>/Library/Caches/docker-secrets-engine/engine.sock:/root/.cache/docker-secrets-engine/engine.sock",
+        "docker/mcp-gateway:latest",
+        "--catalog=/mcp/catalogs/custom.yaml",
+        "--registry=/mcp/registry.yaml",
+        "--transport=stdio"
+      ]
+    }
+  }
+}
+```
 
-Quit and reopen Claude Desktop after connecting.
+All three bind-mounts are required:
+
+1. **`/var/run/docker.sock`** — lets the gateway spawn the `ise-readonly-mcp-server` container.
+2. **`~/.docker/mcp`** — the gateway reads the catalog and registry from here.
+3. **`docker-secrets-engine/engine.sock`** — the resolver socket Docker Desktop exposes for the secret store. Without it the gateway resolves your secret URLs to empty strings and `docker run -e ""` rejects the env flags, so the server never starts and only the gateway's internal admin tools show up. On Linux Docker Desktop the host path is `~/.docker/desktop/secrets-engine/engine.sock` instead; check with `find ~ -name engine.sock 2>/dev/null`.
+
+Quit and reopen Claude Desktop. `claude_desktop_config.json` never contains `ISE_PASSWORD` — the gateway resolves it from Docker's secret store at request time.
+
+> **Shortcut alternative.** `docker mcp client connect claude-desktop` (or **MCP Toolkit > Clients** in Docker Desktop) will write a similar block for you automatically. The explicit JSON above gives you control over which catalogs load and survives Docker Desktop updates that may rewrite the auto-managed entry.
 
 ### Step 7 — Verify
 
@@ -155,6 +176,71 @@ docker mcp tools list      # should list the get_* tools
 ```
 
 In Claude Desktop, the tools menu should now include the ISE tools.
+
+---
+
+## Using with Claude Code
+
+Claude Code uses the same `mcp-toolkit-gateway` block from Step 6 — same `command`, same `args` — but reads it from a different file. There are three scopes:
+
+| Scope | File | Sharing |
+|---|---|---|
+| **local** (default) | `~/.claude.json`, under this project's entry | just you, just this project |
+| **project** | `.mcp.json` at the project root | shared via git with collaborators |
+| **user** (global) | `~/.claude.json`, top level | just you, every project |
+
+**Easiest path — let the CLI write it for you.** Replace `<your-username>` and pick the scope you want:
+
+```bash
+claude mcp add -s user mcp-toolkit-gateway -- \
+  docker run -i --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /Users/<your-username>/.docker/mcp:/mcp \
+  -v /Users/<your-username>/Library/Caches/docker-secrets-engine/engine.sock:/root/.cache/docker-secrets-engine/engine.sock \
+  docker/mcp-gateway:latest \
+  --catalog=/mcp/catalogs/custom.yaml \
+  --registry=/mcp/registry.yaml \
+  --transport=stdio
+```
+
+Use `-s user` for global, `-s project` to commit the entry to `.mcp.json` for collaborators, or omit `-s` for the default local scope. Everything after `--` is the same docker invocation Claude Desktop uses — the schema is byte-for-byte identical.
+
+Verify with `claude mcp list`. The Step 3 secrets and Step 4 / Step 5 catalog and registry setup all carry over; nothing else changes.
+
+---
+
+## Using with Codex
+
+OpenAI Codex reads MCP server config from a TOML file instead of JSON. Two scopes:
+
+| Scope | File | Trust requirement |
+|---|---|---|
+| **global** | `~/.codex/config.toml` | none |
+| **project** | `.codex/config.toml` at the project root | Codex only loads project files for **trusted** projects — confirm trust in Codex before relying on this scope |
+
+Same gateway invocation as Step 6, mechanically translated from JSON to TOML (`mcpServers.foo` → `[mcp_servers.foo]`; same `command`, same `args`). Replace `<your-username>` with your macOS username (run `whoami` to check):
+
+```toml
+[mcp_servers.mcp-toolkit-gateway]
+command = "docker"
+args = [
+  "run",
+  "-i",
+  "--rm",
+  "-v",
+  "/var/run/docker.sock:/var/run/docker.sock",
+  "-v",
+  "/Users/<your-username>/.docker/mcp:/mcp",
+  "-v",
+  "/Users/<your-username>/Library/Caches/docker-secrets-engine/engine.sock:/root/.cache/docker-secrets-engine/engine.sock",
+  "docker/mcp-gateway:latest",
+  "--catalog=/mcp/catalogs/custom.yaml",
+  "--registry=/mcp/registry.yaml",
+  "--transport=stdio",
+]
+```
+
+Restart Codex or open a new project thread so the MCP server loads. The Step 3 secrets and Step 4 / Step 5 catalog and registry setup all carry over; nothing else changes.
 
 ---
 

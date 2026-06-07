@@ -157,6 +157,48 @@ claude mcp add ise-readonly \
   podman run --rm -i --env-file /absolute/path/to/podman/.env ise-readonly-mcp:latest
 ```
 
+Three scopes are available: omit `-s` for local (default — `~/.claude.json` under this project's entry), `-s project` to share via `.mcp.json`, or `-s user` for global use across all projects.
+
+## Codex integration
+
+OpenAI Codex reads MCP server config from a TOML file instead of JSON. Two scopes:
+
+| Scope | File | Trust requirement |
+|---|---|---|
+| **global** | `~/.codex/config.toml` | none |
+| **project** | `.codex/config.toml` at the project root | Codex only loads project files for **trusted** projects |
+
+The translation from the Claude Desktop JSON above is mechanical: `mcpServers.foo` → `[mcp_servers.foo]`; same `command`, same `args`.
+
+Using Podman secrets (recommended):
+
+```toml
+[mcp_servers.ise-readonly]
+command = "podman"
+args = [
+  "run", "--rm", "-i",
+  "--secret", "ise_host,type=env,target=ISE_HOST",
+  "--secret", "ise_username,type=env,target=ISE_USERNAME",
+  "--secret", "ise_password,type=env,target=ISE_PASSWORD",
+  "-e", "ISE_VERIFY_SSL=yes",
+  "ise-readonly-mcp:latest",
+]
+```
+
+Or with an env file:
+
+```toml
+[mcp_servers.ise-readonly]
+command = "podman"
+args = [
+  "run", "--rm", "-i",
+  "--env-file", "/absolute/path/to/podman/.env",
+  "ise-readonly-mcp:latest",
+]
+```
+
+Restart Codex or open a new project thread so the MCP server loads.
+
 ---
 
 ## Self-signed certificates
