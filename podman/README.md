@@ -4,6 +4,12 @@ A read-only Model Context Protocol server for Cisco Identity Services Engine
 (ISE) 3.1+, using the ISE OpenAPI only. Every tool is an HTTP GET; no writes
 are possible.
 
+> New here? Start with the [repo overview](../README.md). Prefer **Docker**?
+> The Docker MCP Toolkit sibling lives in [`../docker/`](../docker/README.md);
+> the `server.py` is byte-for-byte identical — only the runtime tooling differs.
+
+> Not affiliated with or endorsed by Cisco. Use at your own risk.
+
 ---
 
 ## Prerequisites

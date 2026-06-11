@@ -9,9 +9,10 @@ This backend runs inside a Docker container managed by the **Docker MCP
 Toolkit**. Your ISE credentials stay in Docker-managed secrets — they are never
 written into Claude Desktop's configuration file.
 
-> Looking for the plain-`docker run` or rootless version? Use the `podman/`
-> backend in the parent directory. The two `server.py` files are identical;
-> only the container file and integration method differ.
+> New here? Start with the [repo overview](../README.md). Looking for the
+> plain-`docker run` or rootless version? Use the [`../podman/`](../podman/README.md)
+> sibling backend. The two `server.py` files are identical; only the container
+> file and integration method differ.
 
 > Not affiliated with or endorsed by Cisco. Use at your own risk.
 
